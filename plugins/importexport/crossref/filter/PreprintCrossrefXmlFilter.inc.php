@@ -5,7 +5,7 @@
  *
  * Copyright (c) 2014-2021 Simon Fraser University
  * Copyright (c) 2000-2021 John Willinsky
- * Distributed under the GNU GPL v3. For full terms see the file docs/COPYING.
+ * Distributed under The MIT License. For full terms see the file LICENSE.
  *
  * @class PreprintCrossrefXmlFilter
  * @ingroup plugins_importexport_crossref
@@ -163,8 +163,12 @@ class PreprintCrossrefXmlFilter extends NativeExportFilter {
 				$personNameNode->setAttribute('language', PKPLocale::getIso1FromLocale($locale));
 				$personNameNode->appendChild($node = $doc->createElementNS($deployment->getNamespace(), 'given_name', htmlspecialchars(ucfirst($givenNames[$locale]), ENT_COMPAT, 'UTF-8')));
 				$personNameNode->appendChild($node = $doc->createElementNS($deployment->getNamespace(), 'surname', htmlspecialchars(ucfirst($familyNames[$locale]), ENT_COMPAT, 'UTF-8')));
-
 				$hasAltName = false;
+				
+				if ($author->getData('orcid')) {
+					$personNameNode->appendChild($node = $doc->createElementNS($deployment->getNamespace(), 'ORCID', $author->getData('orcid')));
+				}
+
 				foreach($familyNames as $otherLocal => $familyName) {
 					if ($otherLocal != $locale && isset($familyName) && !empty($familyName)) {
 						if (!$hasAltName) {
@@ -190,9 +194,6 @@ class PreprintCrossrefXmlFilter extends NativeExportFilter {
 				$personNameNode->appendChild($node = $doc->createElementNS($deployment->getNamespace(), 'surname', htmlspecialchars(ucfirst($author->getFullName(false)), ENT_COMPAT, 'UTF-8')));
 			}
 
-			if ($author->getData('orcid')) {
-				$personNameNode->appendChild($node = $doc->createElementNS($deployment->getNamespace(), 'ORCID', $author->getData('orcid')));
-			}
 			$contributorsNode->appendChild($personNameNode);
 			$isFirst = false;
 		}
@@ -206,6 +207,13 @@ class PreprintCrossrefXmlFilter extends NativeExportFilter {
 
 		// Posted date
 		$postedContentNode->appendChild($this->createPostedDateNode($doc, $publication->getData('datePublished')));
+
+		// abstract
+		if ($abstract = $publication->getData('abstract', $locale)) {
+			$abstractNode = $doc->createElementNS($deployment->getJATSNamespace(), 'jats:abstract');
+			$abstractNode->appendChild($node = $doc->createElementNS($deployment->getJATSNamespace(), 'jats:p', htmlspecialchars(html_entity_decode(strip_tags($abstract), ENT_COMPAT, 'UTF-8'), ENT_COMPAT, 'utf-8')));
+			$postedContentNode->appendChild($abstractNode);
+		}
 
 		// license
 		if ($publication->getData('licenseUrl')) {
@@ -221,7 +229,7 @@ class PreprintCrossrefXmlFilter extends NativeExportFilter {
 		}
 
 		// DOI data
-		$postedContentNode->appendChild($this->createDOIDataNode($doc, $publication->getStoredPubId('doi'), $request->getDispatcher()->url($request, ROUTE_PAGE, null, 'preprint', 'view', [$submission->getBestId(), 'version', $publication->getId()], null, null, true)));
+		$postedContentNode->appendChild($this->createDOIDataNode($doc, $publication->getStoredPubId('doi'), $request->url($context->getPath(), 'preprint', 'view', $submission->getBestId(), null, null, true)));
 
 		return $postedContentNode;
 	}
